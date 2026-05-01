@@ -35,12 +35,10 @@ module.exports = async (req, res) => {
       fulfillment_status: null,
       send_receipt: false,
       send_fulfillment_receipt: false,
-
-      customer: {
-        first_name: name.split(" ")[0] || name,
-        last_name:  name.split(" ").slice(1).join(" ") || ".",
-        phone:      phone,
-      },
+      
+      // FIX: Providing phone here instead of a nested customer object 
+      // allows Shopify to link existing customers automatically.
+      phone: phone,
 
       shipping_address: {
         first_name:   name.split(" ")[0] || name,
