@@ -1,0 +1,13 @@
+{
+  "name": "halo-frame-cod-backend",
+  "version": "1.0.0",
+  "description": "HALO FRAME COD backend — Vercel Serverless",
+  "main": "api/order.js",
+  "engines": {
+    "node": "18.x"
+  },
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {}
+}
