@@ -4,7 +4,7 @@
   "description": "HALO FRAME COD backend — Vercel Serverless",
   "main": "api/order.js",
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vercel dev"
