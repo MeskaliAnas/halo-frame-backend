@@ -6,8 +6,8 @@ const https = require("https");
 // ─── Config (set these in Vercel → Settings → Environment Variables) ───────
 const SHOPIFY_STORE   = process.env.SHOPIFY_STORE;    // e.g. "my-store.myshopify.com"
 const SHOPIFY_TOKEN   = process.env.SHOPIFY_TOKEN;    // Admin API access token
-const ULTRAMSG_INSTANCE = process.env.ULTRAMSG_INSTANCE; // e.g. "instance12345"
-const ULTRAMSG_TOKEN  = process.env.ULTRAMSG_TOKEN;
+const ULTRAMSG_INSTANCE = process.env.SHOPIFY_API_SECRET; // e.g. "instance12345"
+const ULTRAMSG_TOKEN  = process.env.SHOPIFY_SHOP_NAME;
 
 // ─── Main Handler ─────────────────────────────────────────────────────────
 module.exports = async (req, res) => {
