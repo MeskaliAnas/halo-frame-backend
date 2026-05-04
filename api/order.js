@@ -93,7 +93,6 @@ module.exports = async (req, res) => {
     if (!cleanPhone.startsWith("+")) cleanPhone = "+212" + cleanPhone.replace(/^0/, "");
 
     const eventPayload = {
-      test_event_code: "TEST996",   // ⚠️ REMOVE THIS LINE BEFORE GOING LIVE
       data: [
         {
           event_name: "Purchase",
