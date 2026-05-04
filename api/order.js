@@ -3,9 +3,9 @@ const https = require("https");
 const crypto = require("crypto");
 
 // ─── Config ───────────────────────────────────────────────────────────────
-const SHOPIFY_STORE  = process.env.SHOPIFY_DOMAIN;
-const SHOPIFY_TOKEN  = process.env.SHOPIFY_ACCESS_TOKEN;
-const FB_PIXEL_ID    = "1526974165452583";
+const SHOPIFY_STORE   = process.env.SHOPIFY_DOMAIN;
+const SHOPIFY_TOKEN   = process.env.SHOPIFY_ACCESS_TOKEN;
+const FB_PIXEL_ID     = "1526974165452583";
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 
 // ─── Hash helper (Facebook requires SHA256 for PII) ───────────────────────
@@ -89,31 +89,31 @@ module.exports = async (req, res) => {
 
   // ── Fire Facebook Purchase event (server-side) ────────────────────────
   try {
-    // Clean phone: remove spaces/dashes, ensure it starts with country code
     let cleanPhone = phone.replace(/[\s\-().]/g, "");
     if (!cleanPhone.startsWith("+")) cleanPhone = "+212" + cleanPhone.replace(/^0/, "");
 
     const eventPayload = {
+      test_event_code: "TEST996",   // ⚠️ REMOVE THIS LINE BEFORE GOING LIVE
       data: [
         {
           event_name: "Purchase",
           event_time: Math.floor(Date.now() / 1000),
-          event_id:   `order_${orderId}`,         // deduplication key
+          event_id:   `order_${orderId}`,
           action_source: "website",
-          event_source_url: sourceUrl || "https://halo-frame.store",
+          event_source_url: sourceUrl || "https://haloframe.shop",
           user_data: {
-            ph: [hash(cleanPhone)],               // hashed phone
-            fn: [hash(name.split(" ")[0] || name)], // hashed first name
-            ln: [hash(name.split(" ").slice(1).join(" ") || name)], // hashed last name
-            ct: [hash(city)],                     // hashed city
-            country: [hash("ma")],                // hashed country code
+            ph:      [hash(cleanPhone)],
+            fn:      [hash(name.split(" ")[0] || name)],
+            ln:      [hash(name.split(" ").slice(1).join(" ") || name)],
+            ct:      [hash(city)],
+            country: [hash("ma")],
           },
           custom_data: {
-            currency:    "MAD",
-            value:       parseFloat(orderValue),
-            content_ids: [String(variantId)],
+            currency:     "MAD",
+            value:        parseFloat(orderValue),
+            content_ids:  [String(variantId)],
             content_type: "product",
-            order_id:    String(orderId),
+            order_id:     String(orderId),
           },
         },
       ],
@@ -122,7 +122,6 @@ module.exports = async (req, res) => {
     await fbPost(`/v19.0/${FB_PIXEL_ID}/events`, eventPayload);
     console.log(`[FB Event] Purchase fired for order ${orderNumber}`);
   } catch (fbErr) {
-    // Don't fail the order if FB event fails — just log it
     console.error("[FB Event Error]", fbErr.message);
   }
 
@@ -170,9 +169,9 @@ function shopifyPost(path, body) {
 // ─── Facebook Conversions API Helper ──────────────────────────────────────
 function fbPost(path, body) {
   return new Promise((resolve, reject) => {
-    const data    = JSON.stringify(body);
+    const data     = JSON.stringify(body);
     const fullPath = `${path}?access_token=${FB_ACCESS_TOKEN}`;
-    const options = {
+    const options  = {
       hostname: "graph.facebook.com",
       path:     fullPath,
       method:   "POST",
