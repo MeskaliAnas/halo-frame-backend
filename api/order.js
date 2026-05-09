@@ -62,12 +62,12 @@ module.exports = async (req, res) => {
         country:      "Morocco",
         country_code: "MA",
       },
-      line_items: [
-        {
-          variant_id: variantId,
-          quantity:   parseInt(qty, 10) || 1,
-        },
-      ],
+      // Replace the line_items block in orderPayload with:
+line_items: Array.isArray(req.body.lineItems) && req.body.lineItems.length > 0
+  ? req.body.lineItems.map(function(item) {
+      return { variant_id: item.variantId, quantity: parseInt(item.quantity, 10) || 1 };
+    })
+  : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
       note: packDetails
         ? `COD Order — Items: ${packDetails}`
         : `COD Order — Qty: ${qty}`,
