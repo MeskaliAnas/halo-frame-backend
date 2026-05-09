@@ -21,7 +21,8 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST")   return res.status(405).json({ error: "Method not allowed" });
 
-  const { name, phone, city, address, qty, variantId, packDetails, totalPrice, sourceUrl } = req.body;
+  // ✅ lineItems added here
+  const { name, phone, city, address, qty, variantId, lineItems, packDetails, totalPrice, sourceUrl } = req.body;
 
   // ── Validate ──────────────────────────────────────────────────────────
   const missing = [];
@@ -62,12 +63,13 @@ module.exports = async (req, res) => {
         country:      "Morocco",
         country_code: "MA",
       },
-      // Replace the line_items block in orderPayload with:
-line_items: Array.isArray(req.body.lineItems) && req.body.lineItems.length > 0
-  ? req.body.lineItems.map(function(item) {
-      return { variant_id: item.variantId, quantity: parseInt(item.quantity, 10) || 1 };
-    })
-  : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
+      // ✅ Uses lineItems array if available, falls back to single variantId
+      line_items: Array.isArray(lineItems) && lineItems.length > 0
+        ? lineItems.map((item) => ({
+            variant_id: item.variantId,
+            quantity:   parseInt(item.quantity, 10) || 1,
+          }))
+        : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
       note: packDetails
         ? `COD Order — Items: ${packDetails}`
         : `COD Order — Qty: ${qty}`,
