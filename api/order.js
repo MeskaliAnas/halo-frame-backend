@@ -45,7 +45,6 @@ const orderPayload = {
     customer: {
   first_name: name.split(" ")[0] || name,
   last_name:  name.split(" ").slice(1).join(" ") || ".",
-  phone,
 },
     phone,
     shipping_address: {
