@@ -36,51 +36,45 @@ module.exports = async (req, res) => {
   }
 
   // ── Build Shopify order payload ───────────────────────────────────────
-  const orderPayload = {
-    order: {
-      financial_status: "pending",
-      fulfillment_status: null,
-      send_receipt: false,
-      send_fulfillment_receipt: false,
-      customer: {
-        first_name: name.split(" ")[0] || name,
-        last_name:  name.split(" ").slice(1).join(" ") || ".",
-        phone,
-              },
+const orderPayload = {
+  order: {
+    financial_status: "pending",
+    fulfillment_status: null,
+    send_receipt: false,
+    send_fulfillment_receipt: false,
+    phone,
+    shipping_address: {
+      first_name:   name.split(" ")[0] || name,
+      last_name:    name.split(" ").slice(1).join(" ") || ".",
       phone,
-      shipping_address: {
-        first_name:   name.split(" ")[0] || name,
-        last_name:    name.split(" ").slice(1).join(" ") || ".",
-        phone,
-        address1:     address,
-        city,
-        province:     "",
-        zip:          "",
-        country:      "Morocco",
-        country_code: "MA",
-      },
-      billing_address: {
-        first_name:   name.split(" ")[0] || name,
-        last_name:    name.split(" ").slice(1).join(" ") || ".",
-        phone,
-        address1:     address,
-        city,
-        country:      "Morocco",
-        country_code: "MA",
-      },
-      // ✅ Uses lineItems array if available, falls back to single variantId
-      line_items: Array.isArray(lineItems) && lineItems.length > 0
-        ? lineItems.map((item) => ({
-            variant_id: item.variantId,
-            quantity:   parseInt(item.quantity, 10) || 1,
-          }))
-        : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
-      note: packDetails
-        ? `COD Order — Items: ${packDetails}`
-        : `COD Order — Qty: ${qty}`,
-      tags: "COD, Halo-Frame",
+      address1:     address,
+      city,
+      province:     "",
+      zip:          "",
+      country:      "Morocco",
+      country_code: "MA",
     },
-  };
+    billing_address: {
+      first_name:   name.split(" ")[0] || name,
+      last_name:    name.split(" ").slice(1).join(" ") || ".",
+      phone,
+      address1:     address,
+      city,
+      country:      "Morocco",
+      country_code: "MA",
+    },
+    line_items: Array.isArray(lineItems) && lineItems.length > 0
+      ? lineItems.map((item) => ({
+          variant_id: item.variantId,
+          quantity:   parseInt(item.quantity, 10) || 1,
+        }))
+      : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
+    note: packDetails
+      ? `COD Order — Items: ${packDetails}`
+      : `COD Order — Qty: ${qty}`,
+    tags: "COD, Halo-Frame",
+  },
+};
 
   // ── Create Shopify order ──────────────────────────────────────────────
   let orderId, orderNumber, orderValue;
