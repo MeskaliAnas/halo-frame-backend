@@ -8,9 +8,30 @@ const SHOPIFY_TOKEN   = process.env.SHOPIFY_ACCESS_TOKEN;
 const FB_PIXEL_ID     = "1526974165452583";
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 
-// ─── Hash helper (Facebook requires SHA256 for PII) ───────────────────────
+// ─── Hash helper ──────────────────────────────────────────────────────────
 const hash = (value) =>
   crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
+
+// ─── Find or create customer ──────────────────────────────────────────────
+async function findOrCreateCustomer(name, phone) {
+  const searchResult = await shopifyGet(
+    `/admin/api/2024-04/customers/search.json?query=phone:${encodeURIComponent(phone)}&limit=1`
+  );
+
+  if (searchResult.customers && searchResult.customers.length > 0) {
+    return searchResult.customers[0].id;
+  }
+
+  const newCustomer = await shopifyPost(`/admin/api/2024-04/customers.json`, {
+    customer: {
+      first_name:     name.split(" ")[0] || name,
+      last_name:      name.split(" ").slice(1).join(" ") || ".",
+      phone,
+      verified_email: false,
+    },
+  });
+  return newCustomer.customer.id;
+}
 
 // ─── Main Handler ─────────────────────────────────────────────────────────
 module.exports = async (req, res) => {
@@ -21,7 +42,6 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST")   return res.status(405).json({ error: "Method not allowed" });
 
-  // ✅ lineItems added here
   const { name, phone, city, address, qty, variantId, lineItems, packDetails, totalPrice, sourceUrl } = req.body;
 
   // ── Validate ──────────────────────────────────────────────────────────
@@ -35,50 +55,56 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: "Missing fields", fields: missing });
   }
 
+  // ── Get or create customer ────────────────────────────────────────────
+  let customerId;
+  try {
+    customerId = await findOrCreateCustomer(name, phone);
+  } catch (err) {
+    console.error("[Customer Error]", err.message);
+    // Non-fatal: order will still be created, just without a customer link
+  }
+
   // ── Build Shopify order payload ───────────────────────────────────────
-const orderPayload = {
-  order: {
-    financial_status: "pending",
-    fulfillment_status: null,
-    send_receipt: false,
-    send_fulfillment_receipt: false,
-    customer: {
-  first_name: name.split(" ")[0] || name,
-  last_name:  name.split(" ").slice(1).join(" ") || ".",
-},
-    phone,
-    shipping_address: {
-      first_name:   name.split(" ")[0] || name,
-      last_name:    name.split(" ").slice(1).join(" ") || ".",
+  const orderPayload = {
+    order: {
+      financial_status:      "pending",
+      fulfillment_status:    null,
+      send_receipt:          false,
+      send_fulfillment_receipt: false,
+      ...(customerId && { customer: { id: customerId } }),
       phone,
-      address1:     address,
-      city,
-      province:     "",
-      zip:          "",
-      country:      "Morocco",
-      country_code: "MA",
+      shipping_address: {
+        first_name:   name.split(" ")[0] || name,
+        last_name:    name.split(" ").slice(1).join(" ") || ".",
+        phone,
+        address1:     address,
+        city,
+        province:     "",
+        zip:          "",
+        country:      "Morocco",
+        country_code: "MA",
+      },
+      billing_address: {
+        first_name:   name.split(" ")[0] || name,
+        last_name:    name.split(" ").slice(1).join(" ") || ".",
+        phone,
+        address1:     address,
+        city,
+        country:      "Morocco",
+        country_code: "MA",
+      },
+      line_items: Array.isArray(lineItems) && lineItems.length > 0
+        ? lineItems.map((item) => ({
+            variant_id: item.variantId,
+            quantity:   parseInt(item.quantity, 10) || 1,
+          }))
+        : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
+      note: packDetails
+        ? `COD Order — Items: ${packDetails}`
+        : `COD Order — Qty: ${qty}`,
+      tags: "COD, Halo-Frame",
     },
-    billing_address: {
-      first_name:   name.split(" ")[0] || name,
-      last_name:    name.split(" ").slice(1).join(" ") || ".",
-      phone,
-      address1:     address,
-      city,
-      country:      "Morocco",
-      country_code: "MA",
-    },
-    line_items: Array.isArray(lineItems) && lineItems.length > 0
-      ? lineItems.map((item) => ({
-          variant_id: item.variantId,
-          quantity:   parseInt(item.quantity, 10) || 1,
-        }))
-      : [{ variant_id: variantId, quantity: parseInt(qty, 10) || 1 }],
-    note: packDetails
-      ? `COD Order — Items: ${packDetails}`
-      : `COD Order — Qty: ${qty}`,
-    tags: "COD, Halo-Frame",
-  },
-};
+  };
 
   // ── Create Shopify order ──────────────────────────────────────────────
   let orderId, orderNumber, orderValue;
@@ -92,7 +118,7 @@ const orderPayload = {
     return res.status(502).json({ error: "Failed to create Shopify order", detail: err.message });
   }
 
-  // ── Fire Facebook Purchase event (server-side) ────────────────────────
+  // ── Fire Facebook Purchase event ──────────────────────────────────────
   try {
     let cleanPhone = phone.replace(/[\s\-().]/g, "");
     if (!cleanPhone.startsWith("+")) cleanPhone = "+212" + cleanPhone.replace(/^0/, "");
@@ -100,10 +126,10 @@ const orderPayload = {
     const eventPayload = {
       data: [
         {
-          event_name: "Purchase",
-          event_time: Math.floor(Date.now() / 1000),
-          event_id:   `order_${orderId}`,
-          action_source: "website",
+          event_name:       "Purchase",
+          event_time:       Math.floor(Date.now() / 1000),
+          event_id:         `order_${orderId}`,
+          action_source:    "website",
           event_source_url: sourceUrl || "https://haloframe.shop",
           user_data: {
             ph:      [hash(cleanPhone)],
@@ -132,7 +158,41 @@ const orderPayload = {
   return res.status(200).json({ success: true, orderId, orderNumber });
 };
 
-// ─── Shopify Admin API Helper ──────────────────────────────────────────────
+// ─── Shopify GET Helper ────────────────────────────────────────────────────
+function shopifyGet(path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: SHOPIFY_STORE,
+      path,
+      method:   "GET",
+      headers: {
+        "X-Shopify-Access-Token": SHOPIFY_TOKEN,
+      },
+    };
+    const request = https.request(options, (response) => {
+      let raw = "";
+      response.on("data", (chunk) => (raw += chunk));
+      response.on("end", () => {
+        try {
+          const parsed = JSON.parse(raw);
+          if (response.statusCode >= 400) {
+            const err = new Error(`Shopify ${response.statusCode}`);
+            err.body  = JSON.stringify(parsed.errors || parsed);
+            return reject(err);
+          }
+          resolve(parsed);
+        } catch {
+          reject(new Error("Invalid JSON from Shopify"));
+        }
+      });
+    });
+    request.on("error", reject);
+    request.setTimeout(9000, () => request.destroy(new Error("Shopify GET timed out")));
+    request.end();
+  });
+}
+
+// ─── Shopify POST Helper ───────────────────────────────────────────────────
 function shopifyPost(path, body) {
   return new Promise((resolve, reject) => {
     const data    = JSON.stringify(body);
